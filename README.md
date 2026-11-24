@@ -1,4 +1,4 @@
-# AI Nutritionist — Telegram-Based Macro Tracker
+# Macros Tracker — Telegram-Based n8n bot
 
 An AI-powered nutrition tracking bot built using **n8n, Google Gemini, and Telegram**. It helps users log meals, estimate nutritional values, and track their daily calorie and macronutrient intake through simple Telegram commands.
 
