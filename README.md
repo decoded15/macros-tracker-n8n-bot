@@ -29,7 +29,7 @@ The workflow processes the results, calculates nutritional totals, stores meal r
 
 ## Workflow Architecture
 
-![AI Nutritionist Workflow](docs/workflow.png)
+![AI Nutritionist Workflow](workflow.png)
 
 ## Telegram Commands
 
