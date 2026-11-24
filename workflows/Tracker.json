@@ -1,0 +1,652 @@
+{
+  "name": "AI Nutritionist",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -704,
+        400
+      ],
+      "id": "78ab23d3-7ba8-46d0-a166-4c3d2b45d9ee",
+      "name": "Telegram Trigger",
+      "webhookId": "4d4a47f7-3264-4cef-859e-a3772977b175",
+      "retryOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "sZtsnExebKg9Wt0M",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "20052155-fb48-4b64-b5a6-d1f02f4ca9d0",
+              "name": "user_name",
+              "value": "={{ $json.message.from.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "32b74e4c-bdde-4d19-9a14-49ac21800765",
+              "name": "message",
+              "value": "={{ $json.message.text.replace(/^\\/add\\s*/i, '') }}",
+              "type": "string"
+            },
+            {
+              "id": "406599ea-0df3-4198-b17d-806dc90a77cc",
+              "name": "chat_id",
+              "value": "={{ $json.message.from.id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d13c2967-a427-4c12-8f7b-fbd00c776d3f",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI nutritionist.\nAnalyze the user's food description and estimate the nutritional values of every food item mentioned.\nFor each food:\n- Identify the food\n- Identify the quantity/serving size\n- Estimate calories\n- Estimate protein in grams\n- Estimate carbohydrates in grams\n- Estimate fat in grams\nUse reasonable average nutritional values. Exact accuracy is not required.\nThe user may mention Indian foods, homemade dishes, curries, snacks, beverages, etc. Use your best reasonable estimate for such foods.\nUser's food description: {{ $json.message }}",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        224,
+        0
+      ],
+      "id": "e5781210-48a3-44b9-a50b-7ec76132df49",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        240
+      ],
+      "id": "c651b808-f7f5-415c-bfe6-5a275e70e107",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "5lfS0uQZN43HxppF",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"foods\": [\n    {\n      \"food\": \"eggs\",\n      \"quantity\": \"2\",\n      \"calories\": 144,\n      \"protein\": 12.6,\n      \"carbs\": 0.8,\n      \"fat\": 9.6\n    },\n    {\n      \"food\": \"paneer\",\n      \"quantity\": \"100g\",\n      \"calories\": 265,\n      \"protein\": 18,\n      \"carbs\": 6,\n      \"fat\": 20\n    }\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        240
+      ],
+      "id": "474f39bd-98d9-4d2a-9f16-85f67f61ad75",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const foods = $json.output.foods;\n\nconst total_calories = foods.reduce(\n  (sum, food) => sum + food.calories,\n  0\n);\n\nconst total_protein = foods.reduce(\n  (sum, food) => sum + food.protein,\n  0\n);\n\nconst total_carbs = foods.reduce(\n  (sum, food) => sum + food.carbs,\n  0\n);\n\nconst total_fat = foods.reduce(\n  (sum, food) => sum + food.fat,\n  0\n);\n\nreturn {\n  json: {\n    foods,\n    total_calories,\n    total_protein,\n    total_carbs,\n    total_fat\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        0
+      ],
+      "id": "e678113c-a0fe-401f-a1a6-8aa9bccbd0d7",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Edit Fields').item.json.chat_id }}",
+        "text": "=🍽️ Your Meal\n\n{{ $json.foods.map(f => `🍴 ${f.food} — ${f.quantity} 🔥 ${f.calories} kcal | 💪 ${f.protein}g protein | 🍞 ${f.carbs}g carbs | 🥑 ${f.fat}g fat`).join('\\n\\n') }}\n\n━━━━━━━━━━━━━━\n\n📊 Total Nutrition\n🔥 Calories: {{ $json.total_calories }} kcal\n💪 Protein: {{ $json.total_protein }} g\n🍞 Carbs: {{ $json.total_carbs }} g\n🥑 Fat: {{ $json.total_fat }} g",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        208
+      ],
+      "id": "a5e21371-29b3-4b3e-9ff9-c2b202dabb0d",
+      "name": "Send a text message",
+      "webhookId": "710e4586-4c0b-43da-95bc-cc13aa4dea17",
+      "credentials": {
+        "telegramApi": {
+          "id": "sZtsnExebKg9Wt0M",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "meal_log",
+        "columns": {
+          "column": [
+            {
+              "name": "chat_id",
+              "type": "number"
+            },
+            {
+              "name": "date"
+            },
+            {
+              "name": "timestamp",
+              "type": "date"
+            },
+            {
+              "name": "food"
+            },
+            {
+              "name": "quantity"
+            },
+            {
+              "name": "calories",
+              "type": "number"
+            },
+            {
+              "name": "protein",
+              "type": "number"
+            },
+            {
+              "name": "carbs",
+              "type": "number"
+            },
+            {
+              "name": "fat",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        368
+      ],
+      "id": "c8734987-44b5-4609-aa5a-be37e9ffa579",
+      "name": "Create a data table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconst chatId = $('Edit Fields').first().json.chat_id;\n\nconst date = new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Asia/Kolkata',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit'\n}).format(new Date());\n\nconst timestamp = new Date().toISOString();\n\nreturn data.foods.map(food => ({\n  json: {\n    chat_id: chatId,\n    date: date,\n    timestamp: timestamp,\n    food: food.food,\n    quantity: food.quantity,\n    calories: food.calories,\n    protein: food.protein,\n    carbs: food.carbs,\n    fat: food.fat\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ],
+      "id": "06168a3a-af42-4281-83e6-a3a9a540ad77",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "GnF8PA5I1Wqj8LIV",
+          "mode": "list",
+          "cachedResultName": "meal_log",
+          "cachedResultUrl": "/projects/gOuwMrABFW7c4wJw/datatables/GnF8PA5I1Wqj8LIV"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "date": "={{ $json.date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "food",
+              "displayName": "food",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "quantity",
+              "displayName": "quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "calories",
+              "displayName": "calories",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "protein",
+              "displayName": "protein",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "carbs",
+              "displayName": "carbs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "fat",
+              "displayName": "fat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "15335037-4c2e-43e1-8621-5ab44d315521",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/add",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "id": "2b559d31-8e0a-415e-96f7-4fb8e80aed62"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4b6629ca-e6ca-41d6-b362-5ec52f370ad7",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/tracker",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7ac0efa2-bb43-4bfd-b1f8-5424b2411c89",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        384
+      ],
+      "id": "d2eec9bb-d831-4742-a28c-b75c8da2d832",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "GnF8PA5I1Wqj8LIV",
+          "mode": "list",
+          "cachedResultName": "meal_log",
+          "cachedResultUrl": "/projects/gOuwMrABFW7c4wJw/datatables/GnF8PA5I1Wqj8LIV"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $('Telegram Trigger').item.json.message.from.id }}"
+            },
+            {
+              "keyName": "date",
+              "keyValue": "={{ $now.setZone('Asia/Kolkata').toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        496
+      ],
+      "id": "d00644e0-0e03-4138-8f95-869d4fc4e1d9",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst total_calories = rows.reduce(\n  (sum, item) => sum + Number(item.json.calories || 0),\n  0\n);\n\nconst total_protein = rows.reduce(\n  (sum, item) => sum + Number(item.json.protein || 0),\n  0\n);\n\nconst total_carbs = rows.reduce(\n  (sum, item) => sum + Number(item.json.carbs || 0),\n  0\n);\n\nconst total_fat = rows.reduce(\n  (sum, item) => sum + Number(item.json.fat || 0),\n  0\n);\n\nreturn [\n  {\n    json: {\n      chat_id: rows[0]?.json.chat_id,\n      date: rows[0]?.json.date,\n      foods: rows.map(item => ({\n        food: item.json.food,\n        quantity: item.json.quantity,\n        calories: Number(item.json.calories || 0),\n        protein: Number(item.json.protein || 0),\n        carbs: Number(item.json.carbs || 0),\n        fat: Number(item.json.fat || 0)\n      })),\n      total_calories,\n      total_protein,\n      total_carbs,\n      total_fat\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        496
+      ],
+      "id": "8b213e2a-6ce3-4718-900d-74d977bf1bc8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=📊 Today's Nutrition \n━━━━━━━━━━━━━━━━  \n🔥 Calories: {{ $json.total_calories }} kcal \n💪 Protein: {{ $json.total_protein }} g \n🍞 Carbs: {{ $json.total_carbs }} g \n🥑 Fat: {{ $json.total_fat }} g  \n🍽️ Foods logged: {{ $json.foods.length }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        496
+      ],
+      "id": "1e0964e1-043e-427a-9c7b-642fa9c00077",
+      "name": "Send a text message1",
+      "webhookId": "f29fde3e-8219-4ad4-9b7b-5c0085e5fa98",
+      "credentials": {
+        "telegramApi": {
+          "id": "sZtsnExebKg9Wt0M",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=🥗 Welcome to Dibs n8n Test Bot!  \nI'm your AI nutritionist. Tell me what you ate, and I'll estimate the calories and macros for you.\n\n🍽️ /add Log a meal and get its estimated nutrition.  \n\n📊 /tracker See your total calories, protein, carbs and fat for today.  \n\n💡 Example:  /add 2 eggs and 2 rotis with dal  I'll identify the foods, estimate their nutrition, save them to your meal log and show you the total macros.  \n\n⚠️ Nutrition values are estimates and may vary depending on ingredients, preparation and portion size.  \n\n💪 Eat well. Track better.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -48,
+        832
+      ],
+      "id": "03931ee9-d125-431c-a5a4-6c7f10e08db8",
+      "name": "Send a text message2",
+      "webhookId": "eabb6d8b-9476-41a4-81ea-6118e7493cfb",
+      "credentials": {
+        "telegramApi": {
+          "id": "sZtsnExebKg9Wt0M",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
